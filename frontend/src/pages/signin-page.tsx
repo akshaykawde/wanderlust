@@ -7,6 +7,8 @@ import { TSignInSchema, signInSchema } from '@/lib/types';
 import 'react-toastify/dist/ReactToastify.css';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'react-toastify';
+import axios, { isAxiosError } from 'axios';
+import userState from '@/utils/user-state';
 
 function signin() {
   const navigate = useNavigate();
@@ -16,19 +18,37 @@ function signin() {
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
+    setError,
   } = useForm<TSignInSchema>({ resolver: zodResolver(signInSchema) });
 
   const onSubmit = async (data: FieldValues) => {
-    if (data.email === 'abc@gamil.com') {
-      toast.error('Submitting form is failed');
-      return;
+    try {
+      const { email, password } = data;
+
+      const response = await axios.post(
+        import.meta.env.VITE_API_PATH + '/api/auth/email-password/signin',
+        {
+          email,
+          password,
+        }
+      );
+
+      userState.setUser(response?.data?.accessToken);
+      toast.success(response.data.message);
+
+      reset();
+      navigate('/');
+    } catch (error) {
+      if (isAxiosError(error)) {
+        const errorMessage = error?.response?.data?.message;
+
+        if (errorMessage.includes('Email')) {
+          setError('email', { type: 'manual', message: errorMessage });
+        } else {
+          setError('password', { type: 'manual', message: errorMessage });
+        }
+      }
     }
-
-    // TODO: Server-side validation
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    reset();
-    navigate('/');
   };
 
   return (
